@@ -1,0 +1,145 @@
+
+<!DOCTYPE html>
+<html>
+<meta charset="utf-8">
+<style>
+  .node circle {
+    fill: #a3d2ca;
+    stroke: #333;
+    stroke-width: 1.5px;
+  }
+
+  .node text {
+    font: 12px sans-serif;
+  }
+
+  .link {
+    fill: none;
+    stroke: #555;
+    stroke-opacity: 0.4;
+    stroke-width: 1.5px;
+  }
+</style>
+<body>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+
+const treeData = {"name": "Commerce", "children": [{"name": "Fashion", "children": [{"name": "E-Commerce", "children": [{"name": "Otto Group"}, {"name": "Kapten&Son"}, {"name": "Zalando SE"}, {"name": "MyTheresa"}, {"name": "About You"}, {"name": "Best Secret"}, {"name": "Armedangels"}, {"name": "Yatego"}]}, {"name": "Retail", "children": [{"name": "Fielmann Group"}]}, {"name": "E-Commerce / Fashion", "children": [{"name": "Bonprix GmbH"}]}, {"name": "Marketplace", "children": [{"name": "BestSecret"}, {"name": "Wolf&Badger"}]}, {"name": "Wholesale", "children": [{"name": "Stockxwerk"}]}]}, {"name": "Delivery Services", "children": [{"name": "Logistics Management", "children": [{"name": "Hermes (Otto Group)"}]}]}, {"name": "Tech", "children": [{"name": "Bio tech", "children": [{"name": "Eppendorf US"}]}, {"name": "E-Commerce", "children": [{"name": "Novomind"}, {"name": "Amazon"}, {"name": "eBay"}]}, {"name": "Marketplace", "children": [{"name": "Refurbed"}]}, {"name": "Omnichannel", "children": [{"name": "MediaMark"}]}]}, {"name": "Logistics", "children": [{"name": "Logistics Management", "children": [{"name": "HHLA"}]}]}, {"name": "Food", "children": [{"name": "Retail / Supermarket / E-Commerce", "children": [{"name": "Lidl"}]}, {"name": "Omnichannel", "children": [{"name": "Rewe Group"}, {"name": "Nestl\u00e9"}]}, {"name": "Wholesale", "children": [{"name": "Metro AG"}, {"name": "Selgros"}]}, {"name": "Retail", "children": [{"name": "Edeka Gruppe"}, {"name": "Kaufland"}]}]}, {"name": "Beauty", "children": [{"name": "Retail / Cosmetics", "children": [{"name": "Douglas AG"}]}, {"name": "Omnichannel", "children": [{"name": "Beiersdorf AG"}]}]}, {"name": "Automotive", "children": [{"name": "E-Commerce", "children": [{"name": "Delticom AG"}, {"name": "AUTO1 Group SE"}]}]}, {"name": "Chemicals", "children": [{"name": "Omnichannel", "children": [{"name": "Tesa AG"}, {"name": "Berner Group"}]}]}, {"name": "FMCG", "children": [{"name": "Omnichannel", "children": [{"name": "Unilever"}]}]}, {"name": "Interior", "children": [{"name": "Omnichannel", "children": [{"name": "Vinterior"}]}]}, {"name": "Wholesale", "children": [{"name": "Wholesale", "children": [{"name": "BayWa AG"}]}]}, {"name": "Retail", "children": [{"name": "Retail", "children": [{"name": "Hornbach"}, {"name": "Deichmann SE"}]}]}, {"name": "Investment", "children": [{"name": "E-Commerce", "children": [{"name": "Adevinta"}]}]}, {"name": "Digital Services", "children": [{"name": "Digital Services", "children": [{"name": "Minubo"}, {"name": "S-KON Gruppe"}]}]}, {"name": "Music", "children": [{"name": "E-Commerce", "children": [{"name": "Thomann GmbH"}]}]}]};
+
+const width = 1200;
+const dx = 20;
+const dy = width / 6;
+const tree = d3.tree().nodeSize([dx, dy]);
+const diagonal = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+
+const svg = d3.create("svg")
+    .attr("viewBox", [-dy / 3, -dx, width, dx * 60])
+    .style("font", "12px sans-serif")
+    .style("user-select", "none");
+
+const root = d3.hierarchy(treeData);
+root.x0 = dy / 2;
+root.y0 = 0;
+root.descendants().forEach((d, i) => {
+  d.id = i;
+  d._children = d.children;
+  if (d.depth && d.data.name.length !== 7) d.children = null;
+});
+
+const gLink = svg.append("g")
+    .attr("fill", "none")
+    .attr("stroke", "#555")
+    .attr("stroke-opacity", 0.4)
+    .attr("stroke-width", 1.5);
+
+const gNode = svg.append("g")
+    .attr("cursor", "pointer")
+    .attr("pointer-events", "all");
+
+function update(source) {
+  const duration = 250;
+  const nodes = root.descendants().reverse();
+  const links = root.links();
+
+  tree(root);
+
+  let left = root;
+  let right = root;
+  root.eachBefore(node => {
+    if (node.x < left.x) left = node;
+    if (node.x > right.x) right = node;
+  });
+
+  const height = right.x - left.x + dx * 2;
+
+  svg.transition()
+      .duration(duration)
+      .attr("viewBox", [-dy / 3, left.x - dx, width, height]);
+
+  const node = gNode.selectAll("g")
+    .data(nodes, d => d.id);
+
+  const nodeEnter = node.enter().append("g")
+      .attr("transform", d => `translate(${source.y0},${source.x0})`)
+      .attr("fill-opacity", 0)
+      .attr("stroke-opacity", 0)
+      .on("click", (event, d) => {
+        d.children = d.children ? null : d._children;
+        update(d);
+      });
+
+  nodeEnter.append("circle")
+      .attr("r", 4)
+      .attr("fill", d => d._children ? "#555" : "#999");
+
+  nodeEnter.append("text")
+      .attr("dy", "0.31em")
+      .attr("x", d => d._children ? -6 : 6)
+      .attr("text-anchor", d => d._children ? "end" : "start")
+      .text(d => d.data.name)
+    .clone(true).lower()
+      .attr("stroke-linejoin", "round")
+      .attr("stroke-width", 3)
+      .attr("stroke", "white");
+
+  node.merge(nodeEnter).transition()
+      .duration(duration)
+      .attr("transform", d => `translate(${d.y},${d.x})`)
+      .attr("fill-opacity", 1)
+      .attr("stroke-opacity", 1);
+
+  node.exit().transition().duration(duration).remove()
+      .attr("transform", d => `translate(${source.y},${source.x})`)
+      .attr("fill-opacity", 0)
+      .attr("stroke-opacity", 0);
+
+  const link = gLink.selectAll("path")
+    .data(links, d => d.target.id);
+
+  const linkEnter = link.enter().append("path")
+      .attr("d", d => {
+        const o = {x: source.x0, y: source.y0};
+        return diagonal({source: o, target: o});
+      });
+
+  link.merge(linkEnter).transition().duration(duration)
+      .attr("d", diagonal);
+
+  link.exit().transition().duration(duration).remove()
+      .attr("d", d => {
+        const o = {x: source.x, y: source.y};
+        return diagonal({source: o, target: o});
+      });
+
+  root.eachBefore(d => {
+    d.x0 = d.x;
+    d.y0 = d.y;
+  });
+}
+
+update(root);
+document.body.appendChild(svg.node());
+
+</script>
+</body>
+</html>
